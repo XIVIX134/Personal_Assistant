@@ -13,7 +13,7 @@
   "dependencies": {
     "@google-cloud/monitoring": "^4.1.0",
     "@google/generative-ai": "^0.15.0",
-    "bull": "^4.15.1",
+    "bull": "^4.12.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

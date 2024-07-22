@@ -1,37 +1,53 @@
 import dotenv from 'dotenv';
 import express from 'express';
+import Queue from 'bull';
 import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { fileURLToPath } from 'url';
+import winston from 'winston';
 import multer from 'multer';
+import { validationResult, body } from 'express-validator';
+import rateLimit from 'express-rate-limit';
 import { createWorker } from 'tesseract.js';
 import ffmpeg from 'fluent-ffmpeg';
-import rateLimit from 'express-rate-limit';
-import bull from 'bull';
-import winston from 'winston';
-import { body, validationResult } from 'express-validator';
+import cors from 'cors';
 
-const Queue = bull;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Configure CORS
+app.use(cors({
+    origin: '*', // In production, specify your client's origin
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: '*', // In production, specify your client's origin
+        methods: ['GET', 'POST']
+    }
+});
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
 
 // Setup Winston logger
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
   defaultMeta: { service: 'chat-service' },
   transports: [
     new winston.transports.File({ filename: 'error.log', level: 'error' }),
@@ -39,6 +55,7 @@ const logger = winston.createLogger({
   ],
 });
 
+// If we're not in production, log to the console as well
 if (process.env.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
     format: winston.format.simple(),
@@ -46,13 +63,13 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Setup Bull queue
-const audioQueue = new Queue('audio transcription', process.env.REDIS_URL);
+const audioQueue = new Queue('audio transcription', process.env.REDIS_URL || 'redis://127.0.0.1:6379');
 
 // Ensure uploads directory exists
 try {
     await fs.access('uploads');
 } catch {
-    await fs.mkdir('uploads');
+    await fs.mkdir('uploads').then(() => logger.info('Created uploads directory'));
 }
 
 const storage = multer.diskStorage({
@@ -81,6 +98,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use('/api', apiLimiter);
 
+// Use 'server' instead of 'app' to listen
+server.listen(port, () => {
+    console.log(`HTTP Server running on http://localhost:${port}`);
+  });
+
 io.on('connection', (socket) => {
     logger.info('User connected');
     socket.on('disconnect', () => logger.info('User disconnected'));
@@ -88,6 +110,7 @@ io.on('connection', (socket) => {
 
 app.post('/api/send-message', upload.array('file', 5), async (req, res) => {
     try {
+        logger.info('Received message request');
         const message = req.body.message || '';
         const files = req.files || [];
         
@@ -95,8 +118,9 @@ app.post('/api/send-message', upload.array('file', 5), async (req, res) => {
         // For now, we'll just echo the message back
         
         res.json({ success: true, message: 'Message received: ' + message });
+        logger.info('Message processed successfully');
     } catch (error) {
-        logger.error('Error in /api/send-message:', error);
+        logger.error('Error in /api/send-message:', { error: error.message, stack: error.stack });
         res.status(500).json({ error: 'An error occurred while processing your message.' });
     }
 });
@@ -106,17 +130,19 @@ app.post('/api/chat',
     body('message').trim().escape(),
     async (req, res) => {
         const errors = validationResult(req);
+        logger.info('Received chat request');
         if (!errors.isEmpty()) {
+            logger.warn('Invalid chat request', { errors: errors.array() });
             return res.status(400).json({ errors: errors.array() });
         }
 
         const currentMessageId = messageIdCounter++;
         const message = req.body.message || '';
         const safetySettings = req.body.safetySettings || defaultSafetySettings;
+        let processedFiles = []; // Initialize processedFiles array here, outside of the try block
 
         try {
             let parts = [{ text: message }];
-            let processedFiles = [];
 
             if (req.files && req.files.length > 0) {
                 processedFiles = await Promise.all(req.files.map(processFile));
@@ -151,10 +177,16 @@ app.post('/api/chat',
             });
 
             res.json({ success: true, message: 'Response sent successfully', messageId: currentMessageId });
+            logger.info('Chat response sent successfully', { messageId: currentMessageId });
         } catch (error) {
             handleChatError(error, res, currentMessageId);
         } finally {
-            await Promise.all(processedFiles.map(file => fs.unlink(file.path).catch(err => logger.error('Error deleting file:', err))));
+            // Only attempt to delete files if processedFiles exists and has items
+            if (processedFiles.length > 0) {
+                await Promise.all(processedFiles.map(file => fs.unlink(file.path).catch(err => {
+                    logger.error('Error deleting file:', { error: err.message, file: file.path });
+                })));
+            }
         }
     }
 );
@@ -190,7 +222,7 @@ async function processFile(file) {
 }
 
 function handleChatError(error, res, currentMessageId) {
-    logger.error(`Error in chat route for message ID ${currentMessageId}:`, error);
+    logger.error(`Error in chat route for message ID ${currentMessageId}:`, { error: error.message, stack: error.stack });
     io.emit('ai-response', { messageId: currentMessageId, chunkText: 'An error occurred while processing your request.', done: true });
     res.status(500).json({ error: 'An error occurred while processing your request. Please try again.' });
 }
@@ -218,15 +250,13 @@ async function transcribeAudio(audioPath) {
 
 // Add these error handling middlewares
 app.use((req, res, next) => {
+    logger.warn('404 Not Found', { url: req.originalUrl });
     res.status(404).json({ error: 'Not Found' });
 });
 
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    logger.error('Unhandled error', { error: err.message, stack: err.stack });
     res.status(500).json({ error: 'Something broke!' });
 });
 
-// Only one server.listen() call at the end of the file
-server.listen(port, () => {
-    logger.info(`Server running on http://localhost:${port}`);
-});
+
