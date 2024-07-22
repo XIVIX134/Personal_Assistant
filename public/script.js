@@ -9,8 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sendButton: document.getElementById('send-button'),
         voiceInputButton: document.getElementById('voice-input'),
         themeToggle: document.getElementById('theme-toggle'),
-        scrollToBottomButton: document.getElementById('scroll-to-bottom'),
-        uploadProgressBar: document.getElementById('upload-progress-bar')
+        scrollToBottomButton: document.getElementById('scroll-to-bottom')
     };
 
     let selectedFile = null;
@@ -49,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleDarkMode();
     }
     console.log('Theme loaded from localStorage');
+
+    // Load chat history
+    loadChatHistory();
 
     elements.chatBox.addEventListener('dragover', handleDragOver);
     elements.chatBox.addEventListener('drop', handleDrop);
@@ -110,13 +112,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = new FileReader();
         reader.onload = function(e) {
             if (file.type.startsWith('image/')) {
-                elements.filePreview.innerHTML = `<img src="${e.target.result}" alt="File preview" style="max-height: 100px;">`;
+                elements.filePreview.innerHTML = `<img src="${e.target.result}" alt="File preview" style="max-width: 200px; max-height: 200px;">`;
             } else if (file.type.startsWith('video/')) {
-                elements.filePreview.innerHTML = `<video src="${e.target.result}" controls style="max-height: 100px;"></video>`;
+                elements.filePreview.innerHTML = `<video src="${e.target.result}" controls style="max-width: 200px; max-height: 200px;"></video>`;
             } else if (file.type.startsWith('audio/')) {
                 elements.filePreview.innerHTML = `<audio src="${e.target.result}" controls></audio>`;
+            } else if (file.type === 'application/pdf') {
+                elements.filePreview.innerHTML = `<embed src="${e.target.result}" type="application/pdf" width="200px" height="200px" />`;
+            } else if (file.type.startsWith('text/')) {
+                fetch(e.target.result)
+                    .then(response => response.text())
+                    .then(text => {
+                        elements.filePreview.innerHTML = `<pre>${text.substring(0, 200)}${text.length > 200 ? '...' : ''}</pre>`;
+                    });
             } else {
-                elements.filePreview.innerHTML = `<span>${file.name}</span>`;
+                elements.filePreview.innerHTML = `
+                    <div class="file-icon"><i class="fas fa-file"></i></div>
+                    <span>${file.name}</span>
+                `;
             }
         };
         reader.readAsDataURL(file);
@@ -135,22 +148,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            await fetchWithErrorHandling('/api/chat', {
+            const response = await fetchWithErrorHandling('/api/chat', {
                 method: 'POST',
                 body: formData
             });
-            resetInput();
+            if (response.success) {
+                elements.chatInput.value = '';
+                elements.filePreview.innerHTML = '';
+                selectedFile = null;
+            }
         } catch (error) {
             console.error('Error in sendMessage:', error.message);
             appendMessage('bot', 'An error occurred while sending the message. Please try again.');
         }
-    }
-
-    function resetInput() {
-        elements.chatInput.value = '';
-        elements.filePreview.innerHTML = '';
-        selectedFile = null;
-        console.log('Input reset after sending message');
     }
 
     function appendMessage(sender, content, messageId = null) {
@@ -301,50 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.chatBox.scrollTop < elements.chatBox.scrollHeight - elements.chatBox.clientHeight - 100 ? 'flex' : 'none';
     }
 
-    const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
-
-    async function uploadInChunks(formData) {
-        const file = formData.get('file');
-        if (!file) {
-            return sendTextOnlyMessage(formData);
-        }
-
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        for (let start = 0; start < file.size; start += CHUNK_SIZE) {
-            const chunk = file.slice(start, start + CHUNK_SIZE);
-            const chunkFormData = new FormData();
-            chunkFormData.append('file', chunk, file.name);
-            chunkFormData.append('chunkIndex', Math.floor(start / CHUNK_SIZE));
-            chunkFormData.append('totalChunks', totalChunks);
-
-            await fetchWithErrorHandling('/api/upload-chunk', {
-                method: 'POST',
-                body: chunkFormData
-            });
-            console.log(`Chunk ${Math.floor(start / CHUNK_SIZE) + 1}/${totalChunks} uploaded`);
-
-            updateUploadProgress((start + chunk.size) / file.size * 100);
-        }
-
-        await fetchWithErrorHandling('/api/complete-upload', {
-            method: 'POST',
-            body: JSON.stringify({ fileName: file.name, totalChunks }),
-            headers: { 'Content-Type': 'application/json' }
-        });
-        console.log('File upload completed:', file.name);
-
-        return sendTextOnlyMessage(formData);
-    }
-
-    async function sendTextOnlyMessage(formData) {
-        return fetchWithErrorHandling('/api/chat', {  // Changed from '/api/send-message' to '/api/chat'
-            method: 'POST',
-            body: formData
-        }).then(() => {
-            console.log('Text-only message sent successfully');
-        });
-    }
-
     async function fetchWithErrorHandling(url, options) {
         try {
             const response = await fetch(`http://localhost:3000${url}`, options);
@@ -360,25 +326,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function updateUploadProgress(progress) {
-        elements.uploadProgressBar.style.width = `${progress}%`;
-        console.log('Upload progress updated:', progress);
+    async function loadChatHistory() {
+        try {
+            const response = await fetchWithErrorHandling('/api/chat-history');
+            if (response.success) {
+                response.chatHistory.forEach(message => {
+                    appendMessage(message.role, message.content);
+                });
+                console.log('Chat history loaded successfully');
+            }
+        } catch (error) {
+            console.error('Error loading chat history:', error.message);
+            appendMessage('bot', 'An error occurred while loading the chat history. Please refresh the page to try again.');
+        }
     }
 
-    function handleConnectionError(error) {
-        console.error('WebSocket connection error:', error.message);
-        appendMessage('bot', 'Sorry, there was an error connecting to the server. Please check your internet connection and try again.');
-        setTimeout(() => {
-            socket.connect();
-            console.log('Attempting to reconnect to WebSocket server');
-        }, 5000); // Try to reconnect after 5 seconds
-    }
-
-    // Global error handler
-    window.onerror = function(message, source, lineno, colno, error) {
-        console.error('Global error:', { message, source, lineno, colno, error: error.message });
+    // Global error handler and unhandled promise rejection handler
+    const handleError = (error, isFatal = false) => {
+        console.error('Caught error:', error);
         appendMessage('bot', 'An unexpected error occurred. Our team has been notified.');
-        // TODO: Send this error to the server for logging
-        // Example: sendErrorToServer({ message, source, lineno, colno, error: error.message });
+        // Send error to server for logging (implement this function)
+        sendErrorToServer(error, isFatal);
     };
+
+    window.onerror = (message, source, lineno, colno, error) => {
+        handleError(error || message, true);
+    };
+
+    window.addEventListener('unhandledrejection', (event) => {
+        handleError(event.reason, false);
+    });
 });
