@@ -83,7 +83,15 @@ body {
 .scroll-to-bottom {
     bottom: 80px;
     right: 25px;
-    display: none;
+    display: flex; /* Changed to flex to center content, ensure your JS toggles visibility */
+    justify-content: center;
+    align-items: center;
+    width: 50px; /* Example size */
+    height: 50px; /* Example size */
+    border-radius: 50%; /* Makes it round */
+    background-color: #007bff; /* Example background color */
+    color: #ffffff; /* Example text color */
+    cursor: pointer; /* Changes cursor to pointer on hover */
 }
 
 .theme-toggle:hover, .scroll-to-bottom:hover {
