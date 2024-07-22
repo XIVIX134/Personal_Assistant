@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded and parsed');
+    hljs.highlightAll();
     const elements = {
         chatBox: document.getElementById('chat-box'),
         fileInput: document.getElementById('file-input'),
@@ -174,7 +175,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span>${fileName}</span>
             </div>`;
         } else {
-            contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(content));
+            contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(content, {
+                highlight: function(code, lang) {
+                    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                    return hljs.highlight(code, { language }).value;
+                }
+            }));
+            contentDiv.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightBlock(block);
+            });
         }
 
         if (!messageDiv.querySelector('.message-content')) {
@@ -197,7 +206,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageDiv = messageElements[messageId];
         if (messageDiv) {
             const contentDiv = messageDiv.querySelector('.message-content') || messageDiv;
-            contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(content));
+            contentDiv.innerHTML = DOMPurify.sanitize(marked.parse(content, {
+                highlight: function(code, lang) {
+                    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                    return hljs.highlight(code, { language }).value;
+                }
+            }));
+            contentDiv.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightBlock(block);
+            });
             scrollToBottom();
             console.log(`Message content updated: ID ${messageId}`);
         }

@@ -182,7 +182,7 @@ body {
 
 .message {
     max-width: 70%;
-    padding: 10px 15px;
+    padding: 10px 27px;
     border-radius: 18px;
     font-size: 14px;
     line-height: 1.4;
@@ -319,6 +319,30 @@ body {
     transition: width 0.3s ease;
 }
 
+/* Code block styling */
+pre {
+    background-color: #1e1e1e;
+    border-radius: 5px;
+    padding: 1em;
+    overflow-x: auto;
+}
+
+code {
+    font-family: 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace;
+    font-size: 0.9em;
+    color: #d4d4d4;
+}
+
+/* Syntax highlighting colors */
+.hljs-keyword { color: #569cd6; }
+.hljs-string { color: #ce9178; }
+.hljs-comment { color: #6a9955; }
+.hljs-number { color: #b5cea8; }
+.hljs-function { color: #dcdcaa; }
+.hljs-operator { color: #d4d4d4; }
+.hljs-class { color: #4ec9b0; }
+.hljs-variable { color: #9cdcfe; }
+
 /* Dark mode styles */
 body.dark-mode {
     background-color: var(--background-color-dark);
@@ -401,32 +425,6 @@ body.dark-mode .voice-input:hover {
     background-color: var(--user-message-background-dark);
     color: var(--user-message-color);
 }
-
-/* Mobile optimizations */
-@media (max-width: 600px) {
-    .chat-container {
-        height: 100%;
-        width: 100%;
-    }
-
-    .message {
-        max-width: 80%;
-    }
-
-    .chat-input-area {
-        padding: 10px;
-    }
-
-    .chat-input-area textarea {
-        font-size: 16px;
-    }
-
-    .file-label, #send-button, .voice-input {
-        width: 36px;
-        height: 36px;
-    }
-}
-
 
 /* Mobile optimizations */
 @media (max-width: 600px) {
