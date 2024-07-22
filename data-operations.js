@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 const DB_FILE = path.join(__dirname, 'db.json');
 
-async function readDB() {
+export async function readDB() {
   try {
     const data = await fs.readFile(DB_FILE, 'utf8');
     return JSON.parse(data);
@@ -20,7 +20,7 @@ async function readDB() {
   }
 }
 
-async function writeDB(data) {
+export async function writeDB(data) {
   await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2));
 }
 

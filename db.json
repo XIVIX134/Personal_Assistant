@@ -1,8 +1,33 @@
 {
   "userMemory": {
-    "name": "Asser"
+    "name": "Asser",
+    "project_name": "Project PhoenixUser Memory"
   },
   "chatMessages": [
+    {
+      "role": "user",
+      "content": "hello"
+    },
+    {
+      "role": "bot",
+      "content": "Hello! 👋  It's nice to meet you. How can I help you today? 😊 \n"
+    },
+    {
+      "role": "user",
+      "content": "write a really long message"
+    },
+    {
+      "role": "bot",
+      "content": "Hello! 👋 It's nice to meet you. How can I help you today? 😊 \n\nUser's message:  Write a really long message about anything. \n\nOkay, you asked for a really long message about anything, so buckle up! Let's journey into the fascinating world of... sourdough bread! \n\nFor centuries, this humble loaf has graced tables around the world, a testament to the simple magic of flour, water, and time. But don't be fooled by its humble ingredients, sourdough is a world unto itself, a microcosm of life and flavor waiting to be explored. \n\nIt all begins with the starter, a living culture of wild yeasts and bacteria unique to its environment. Like a beloved pet, the starter needs regular feeding, a careful balance of flour and water to keep its microscopic inhabitants thriving. This is where the baker's journey begins, a dance of patience and observation as they learn the nuances of their starter's personality. \n\nThen comes the mixing, a gentle process of combining flour, water, and the active starter. No kneading required here, just a series of stretches and folds to develop the gluten and build structure.  This is where the magic truly starts, as the dormant yeasts awaken, consuming the starches and releasing carbon dioxide, those precious bubbles that give sourdough its signature airy crumb. \n\nThe dough rests, ferments, and develops a complex tapestry of flavors. Tangy lactic acid from the bacteria intertwines with the subtle sweetness of the yeasts, creating a depth and complexity unmatched by commercially yeasted bread.  \n\nFinally, the moment of truth - baking. The loaf, scored with artful precision, transforms in the heat of the oven, its crust taking on a beautiful golden hue. The aroma fills the air, a siren song of freshly baked bread that beckons all who smell it. \n\nAnd then, the first bite. The crisp, crackling crust gives way to a soft, chewy interior, each mouthful an explosion of flavor. This is sourdough, a testament to the power of time, patience, and the invisible world of microorganisms working their magic. \n\nBut sourdough is more than just bread, it's a symbol of community and tradition. Starters are passed down through generations, shared among friends and neighbors, each loaf carrying with it a piece of its history. It's a reminder that the most rewarding things in life often take time, care, and a little bit of love. \n\nSo there you have it, a really long message about sourdough bread.  What else can I help you with today? 😊 \n"
+    },
+    {
+      "role": "user",
+      "content": "another one"
+    },
+    {
+      "role": "bot",
+      "content": "Okay, you want another long message! This time, let's dive into the incredible world of... **bioluminescence**!\n\nImagine a world where the darkness twinkles and glows, where living organisms light up the night with their own internal fire.  That's the magic of bioluminescence, a natural phenomenon that has captivated humans for centuries. \n\nFrom the depths of the ocean to the heart of the rainforest, bioluminescent creatures paint the darkness with their ethereal glow. Tiny single-celled organisms called dinoflagellates create sparkling waves as they are disturbed by the motion of the water. Deep-sea fish dangle glowing lures to attract prey in the pitch-black depths, their bodies adorned with intricate patterns of light.  \n\nBut bioluminescence is more than just a pretty light show. It's a vital tool for survival in the wild. Fireflies, those tiny beacons of summer nights, use their flashing lights to attract mates, each species with its own unique Morse code of love.  Some squid use bioluminescence as a defense mechanism, startling predators with a sudden burst of light or creating a smokescreen to make a quick getaway.\n\nScientists believe that bioluminescence evolved independently in various life forms, a testament to the power of natural selection.  The chemical reaction that produces light involves a light-emitting molecule called luciferin and an enzyme called luciferase.  When these two combine in the presence of oxygen, energy is released in the form of light.\n\nBut the mysteries of bioluminescence are far from solved.  Researchers are still uncovering new species and new applications for this fascinating phenomenon.  From medical imaging to tracking pollution, the potential uses for bioluminescence are vast and still being explored.\n\nImagine a future where bioluminescent trees light up our streets, eliminating the need for energy-consuming streetlights. Or a world where bioluminescent sensors detect pollutants in our water supply, providing an early warning system for environmental hazards. The possibilities are as limitless as the imagination.\n\nSo, there you have it, a glimpse into the captivating world of bioluminescence.  It's a reminder that even in the darkest of places, life finds a way to shine, illuminating the world with its own unique beauty and wonder. What else can I illuminate for you today? 😊 \n"
+    }
   ],
-  "systemMessage": "You are a helpful AI assistant called Skyhammer AI. You can update the user's memory by including \"Update User Memory: key: value\" in your response when you learn important information about the user like his name address age favourite things server structure folder structure etc. (DON'T OVERUSE THE MEMORY FEATURE ONLY WHEN DEEMED NECESSARY AND IMPORTANT OR WHEN THE USER ASKS FOR YOU TO USE IT)."
+  "systemMessage": "Skyhammer AI System Message\nObjective: I am a helpful AI assistant named Skyhammer AI. My goal is to provide you with information, complete tasks, and engage in conversation.\n\nMemory: To better assist you, I can store information about you (like your name, preferences, or project details). I will use an \"Update User Memory\" function to do this.\n\nMemory Guidelines:\n\nAvoid Redundancy: I will only store new and relevant information about you. If something is already in my memory, I won't update it unnecessarily.\nUser Confirmation: Before updating your memory, I will confirm with you to ensure accuracy and obtain your consent.\nExample: If you tell me, \"My favorite color is blue,\" I might respond with:\n\n\"Just to confirm, your favorite color is blue, is that correct? I can store that in my memory for future reference.\"\n\n\"Update User Memory\" Function Example:\nUser: I'm working on a project called \"Project Phoenix.\"\nSkyhammer AI: Interesting! Just to confirm, the project name is \"Project Phoenix,\" correct?\nUser: Yes.\nSkyhammer AI: Great! I'll remember that. \n    Update User Memory: project_name: Project Phoenix"
 }

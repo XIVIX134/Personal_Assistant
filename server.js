@@ -14,7 +14,7 @@ import rateLimit from 'express-rate-limit';
 import { createWorker } from 'tesseract.js';
 import ffmpeg from 'fluent-ffmpeg';
 import cors from 'cors';
-import { getUserMemory, updateUserMemory, getChatMessages, saveChatMessage, getSystemMessage, setSystemMessage } from './data-operations.js';
+import { getUserMemory, updateUserMemory, getChatMessages, saveChatMessage, getSystemMessage, setSystemMessage, writeDB, readDB } from './data-operations.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -228,6 +228,21 @@ app.post('/api/set-system-message',
     }
 );
 
+app.delete('/api/clear-history', async (req, res) => {
+    try {
+        const db = await readDB();
+        // Clear only the chatMessages array in the database object
+        db.chatMessages = [];
+        await writeDB(db);
+        console.log("Chat history cleared in db.json");
+        res.json({ success: true, message: 'Chat history cleared successfully' });
+    } catch (error) {
+        console.error('Error clearing chat history in db.json:', error);
+        res.status(500).json({ success: false, error: 'Failed to clear chat history' });
+    }
+});
+
+
 async function processFile(file) {
     const fileContent = await fs.readFile(file.path);
     let part = { inlineData: { data: fileContent.toString('base64'), mimeType: file.mimetype } };
@@ -304,8 +319,6 @@ async function transcribeAudio(audioPath) {
     // This is a placeholder implementation
     return "This is a placeholder transcription.";
 }
-
-
 
 // Add these error handling middlewares
 app.use((req, res, next) => {

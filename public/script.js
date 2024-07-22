@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sendButton: document.getElementById('send-button'),
         voiceInputButton: document.getElementById('voice-input'),
         themeToggle: document.getElementById('theme-toggle'),
-        scrollToBottomButton: document.getElementById('scroll-to-bottom')
+        scrollToBottomButton: document.getElementById('scroll-to-bottom'),
+        clearChatHistory: document.getElementById('clear-chat-history'),
+        clearHistoryButton: document.getElementById('clear-history-button')
     };
 
     let selectedFile = null;
@@ -20,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageElements = {};
     let currentStreamingMessageId = null;
 
-    const socket = io('http://localhost:3000');
+    const socket = io('http://192.168.1.12:3000');
 
     socket.on('connect', () => console.log('Successfully connected to WebSocket server'));
     socket.on('connect_error', (error) => console.error('WebSocket connection error:', error));
@@ -59,9 +61,22 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.chatInput.addEventListener('keydown', handleChatInputKeydown);
     elements.voiceInputButton.addEventListener('click', toggleRecording);
     elements.themeToggle.addEventListener('click', toggleDarkMode);
-    elements.chatBox.addEventListener('scroll', handleChatBoxScroll);
-    elements.scrollToBottomButton.addEventListener('click', scrollToBottom);
-
+    // Add event listener for chat box scrolling
+    if (elements.chatBox) {
+        elements.chatBox.addEventListener('scroll', handleChatBoxScroll);
+    } else {
+        console.warn('Chat box element not found');
+    }
+    if (elements.scrollToBottomButton) {
+        elements.scrollToBottomButton.addEventListener('click', scrollToBottom);
+    } else {
+        console.warn('Scroll to bottom button not found');
+    }
+    elements.clearHistoryButton.addEventListener('click', clearChatHistory);
+    
+    // Initial check for scroll button visibility
+    handleChatBoxScroll();
+    
     function handleDragOver(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -209,8 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         scrollToBottom();
-        console.log(`Message appended: ${sender}, ID: ${messageId}`);
-    }
+    console.log(`Message appended: ${sender}, ID: ${messageId}`);
+}
 
     function updateMessageContent(messageId, content) {
         const messageDiv = messageElements[messageId];
@@ -226,15 +241,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 hljs.highlightBlock(block);
             });
             scrollToBottom();
-            console.log(`Message content updated: ID ${messageId}`);
-        }
+    console.log(`Message content updated: ID ${messageId}`);
+}
     }
 
     function scrollToBottom() {
-        if (elements.chatBox.scrollTop + elements.chatBox.clientHeight >= elements.chatBox.scrollHeight - 100) {
+        if (elements.chatBox) {
             elements.chatBox.scrollTop = elements.chatBox.scrollHeight;
+        } else {
+            console.warn('Chat box element not found');
         }
-        console.log('Scrolled to bottom of chat');
     }
 
     function handleChatInputKeydown(event) {
@@ -306,14 +322,42 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Theme toggled:', currentTheme);
     }
 
+    async function clearChatHistory() {
+        if (confirm("Are you sure you want to clear the chat history? This action cannot be undone.")) {
+            try {
+                const response = await fetchWithErrorHandling('/api/clear-history', { 
+                    method: 'DELETE' 
+                });
+            
+                if (response.success) {
+                    // Clear the chat messages in the UI
+                    elements.chatBox.innerHTML = ''; 
+                    console.log("Chat history cleared successfully!");
+                    // Optionally, add a system message to indicate the history has been cleared
+                    appendMessage('bot', 'Chat history has been cleared.');
+                } else {
+                    console.error('Error clearing chat history:', response.error);
+                    alert("Could not clear chat history. Please try again.");
+                }
+            } catch (error) {
+                console.error('Fetch error during chat history clearing:', error);
+                alert("An error occurred while clearing chat history.");
+            }
+        }
+    }
+
     function handleChatBoxScroll() {
-        elements.scrollToBottomButton.style.display = 
-            elements.chatBox.scrollTop < elements.chatBox.scrollHeight - elements.chatBox.clientHeight - 100 ? 'flex' : 'none';
+        if (elements.chatBox && elements.scrollToBottomButton) {
+            const isScrolledToBottom = elements.chatBox.scrollHeight - elements.chatBox.clientHeight <= elements.chatBox.scrollTop + 100;
+            elements.scrollToBottomButton.style.display = isScrolledToBottom ? 'none' : 'flex';
+        } else {
+            console.warn('Chat box or scroll button element not found');
+        }
     }
 
     async function fetchWithErrorHandling(url, options) {
         try {
-            const response = await fetch(`http://localhost:3000${url}`, options);
+            const response = await fetch(`http://192.168.1.12:3000${url}`, options);
             if (!response.ok) {
                 const errorData = await response.json();
                 console.error('API error:', errorData);
