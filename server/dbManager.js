@@ -3,24 +3,39 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import config from "./config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dbPath = path.join(__dirname, "db.json");
 
+let cachedSystemInstruction = null;
+
 async function readDb() {
   try {
     const data = await fs.readFile(dbPath, "utf8");
+    console.log("Read from db.json:", data);
     return JSON.parse(data);
   } catch (error) {
+    console.error("Error reading db.json:", error);
     if (error.code === "ENOENT") {
-      return { messages: [], systemInstruction: "", conversations: [] };
+      console.log(
+        "db.json not found. Creating new database with default values."
+      );
+      const defaultDb = {
+        messages: [],
+        systemInstruction: config.DEFAULT_SYSTEM_INSTRUCTION,
+        conversations: [],
+      };
+      await writeDb(defaultDb);
+      return defaultDb;
     }
     throw error;
   }
 }
 
 async function writeDb(data) {
+  console.log("Writing to db.json:", JSON.stringify(data));
   await fs.writeFile(dbPath, JSON.stringify(data, null, 2), "utf8");
 }
 
@@ -77,14 +92,27 @@ export async function clearMessages(conversationId = "default") {
 }
 
 export async function getSystemInstruction() {
+  if (cachedSystemInstruction !== null) {
+    console.log(
+      "Returning cached system instruction:",
+      cachedSystemInstruction
+    );
+    return cachedSystemInstruction;
+  }
+
   const db = await readDb();
-  return db.systemInstruction || "";
+  cachedSystemInstruction =
+    db.systemInstruction || config.DEFAULT_SYSTEM_INSTRUCTION;
+  console.log("Getting system instruction from DB:", cachedSystemInstruction);
+  return cachedSystemInstruction;
 }
 
 export async function setSystemInstruction(instruction) {
+  console.log("Setting system instruction:", instruction);
   const db = await readDb();
   db.systemInstruction = instruction;
   await writeDb(db);
+  cachedSystemInstruction = instruction;
 }
 
 export async function getConversations() {

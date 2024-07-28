@@ -4,18 +4,19 @@ import {
   elements,
   appendMessage,
   updateFilePreview,
-  processMessageContent,
   removeLoader,
+  setTheme,
+  initializeSettingsPanel,
+  updateSystemInstructionDisplay,
 } from "./ui.js";
 import {
   API_BASE_URL,
   sendMessage,
   uploadFile,
-  setSystemInstruction,
-  deleteCachedContext,
+  setSystemInstruction as apiSetSystemInstruction,
   getConversations,
   deleteConversation,
-  generateConversationName,
+  getSystemInstruction,
 } from "./api.js";
 
 let selectedFile = null;
@@ -24,6 +25,10 @@ let isRecording = false;
 let mediaRecorder;
 let audioChunks = [];
 
+// Initialize settings panel
+initializeSettingsPanel();
+
+// Event Listeners
 elements.sendButton.addEventListener("click", handleSendMessage);
 elements.chatInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
@@ -39,35 +44,42 @@ elements.fileInput.addEventListener("change", (e) => {
   }
 });
 
-elements.deleteContextButton.addEventListener("click", async () => {
-  try {
-    await deleteCachedContext();
-    elements.chatBox.innerHTML = "";
-    appendMessage(
-      "system",
-      "Chat history and cached context have been deleted."
-    );
-  } catch (error) {
-    console.error("Error deleting cached context:", error);
-    appendMessage("system", "Failed to delete cached context.");
-  }
-});
-
-elements.systemInstructionButton.addEventListener("click", () => {
-  const instruction = prompt("Enter system instruction:");
-  if (instruction) {
-    setSystemInstruction(instruction)
-      .then(() => {
-        appendMessage("system", "System instruction has been set.");
-      })
-      .catch((error) => {
-        console.error("Error setting system instruction:", error);
-        appendMessage("system", "Failed to set system instruction.");
-      });
-  }
-});
-
 elements.voiceInput.addEventListener("click", toggleVoiceRecording);
+
+document.getElementById("save-settings").addEventListener("click", function () {
+  const newInstruction = document.getElementById(
+    "system-instruction-input"
+  ).value;
+  updateSystemInstruction(newInstruction);
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  const systemInstructionInput = document.getElementById(
+    "system-instruction-input"
+  );
+
+  if (systemInstructionInput) {
+    // Initial resize
+    autoResizeTextarea(systemInstructionInput);
+
+    // Resize on input
+    systemInstructionInput.addEventListener("input", function () {
+      autoResizeTextarea(this);
+    });
+
+    // Resize when the value is set programmatically
+    const originalSetter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value"
+    ).set;
+    Object.defineProperty(systemInstructionInput, "value", {
+      set: function (value) {
+        originalSetter.call(this, value);
+        autoResizeTextarea(this);
+      },
+    });
+  }
+});
 
 // Sidebar toggle
 const sidebarToggle = document.getElementById("sidebar-toggle");
@@ -91,6 +103,7 @@ document.addEventListener("click", (event) => {
 const newConversationBtn = document.getElementById("new-conversation");
 newConversationBtn.addEventListener("click", createNewConversation);
 
+// Message Handling
 async function handleSendMessage() {
   const message = elements.chatInput.value.trim();
   if (!message && !selectedFile) return;
@@ -102,22 +115,25 @@ async function handleSendMessage() {
     fileData = await uploadFile(selectedFile);
   }
 
-  // Append user message immediately
   appendMessage("user", message, fileData);
 
   const loadingMessage = appendMessage("bot", "loading");
 
   try {
+    const systemInstruction = localStorage.getItem("systemInstruction") || "";
     let { response, conversationId, conversationName, conversations } =
-      await sendMessage(message, fileData, currentConversationId);
+      await sendMessage(
+        message,
+        fileData,
+        currentConversationId,
+        systemInstruction
+      );
 
     if (!currentConversationId) {
       currentConversationId = conversationId;
     }
 
     removeLoader(loadingMessage);
-
-    // Append bot response
     appendMessage("bot", response);
 
     updateConversationList(conversations);
@@ -133,6 +149,7 @@ async function handleSendMessage() {
   elements.fileInput.value = "";
 }
 
+// Conversation Management
 function updateCurrentConversationName(name) {
   const activeConversation = document.querySelector(
     ".conversation-item.active"
@@ -170,7 +187,6 @@ async function loadConversations() {
     conversations.forEach((conv) => {
       addConversationToList(conv.id, conv.name || "Untitled Conversation");
     });
-    // Highlight the active conversation
     updateActiveConversation(currentConversationId);
   } catch (error) {
     console.error("Error loading conversations:", error);
@@ -183,17 +199,14 @@ function updateConversationList(conversations) {
   conversations.forEach((conv) => {
     let existingItem = conversationList.querySelector(`[data-id="${conv.id}"]`);
     if (existingItem) {
-      // Update existing conversation
       const nameSpan = existingItem.querySelector(".conversation-name");
       if (nameSpan) {
         nameSpan.textContent = conv.name || "Untitled Conversation";
       }
     } else {
-      // Add new conversation
       addConversationToList(conv.id, conv.name || "Untitled Conversation");
     }
   });
-  // Highlight the active conversation
   updateActiveConversation(currentConversationId);
 }
 
@@ -266,9 +279,65 @@ function updateActiveConversation(conversationId) {
   });
 }
 
-// Load conversations when the page loads
-loadConversations();
+// System Instructions
+export async function setSystemInstruction(instruction) {
+  try {
+    await apiSetSystemInstruction(instruction);
+    localStorage.setItem("systemInstruction", instruction);
+    updateSystemInstructionDisplay(instruction);
+    appendMessage("system", "System instruction has been set.");
+  } catch (error) {
+    console.error("Error setting system instruction:", error);
+    appendMessage("system", "Failed to set system instruction.");
+  }
+}
 
+async function loadSystemInstruction() {
+  try {
+    const instruction = await getSystemInstruction();
+    console.log("Loaded system instruction:", instruction);
+
+    const systemInstructionInput = document.getElementById(
+      "system-instruction-input"
+    );
+    if (systemInstructionInput) {
+      systemInstructionInput.value = instruction;
+      autoResizeTextarea(systemInstructionInput);
+    }
+
+    localStorage.setItem("systemInstruction", instruction);
+  } catch (error) {
+    console.error("Error loading system instruction:", error);
+  }
+}
+
+async function updateSystemInstruction(instruction) {
+  try {
+    const response = await fetch("/api/set-system-instruction", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ instruction }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update system instruction");
+    }
+
+    const data = await response.json();
+    console.log("Updated system instruction:", data.instruction);
+
+    // Update localStorage
+    localStorage.setItem("systemInstruction", data.instruction);
+
+    // You might want to update any other parts of your UI that use the system instruction here
+  } catch (error) {
+    console.error("Error updating system instruction:", error);
+  }
+}
+
+// Voice Recording
 async function toggleVoiceRecording() {
   if (!isRecording) {
     try {
@@ -301,3 +370,14 @@ async function toggleVoiceRecording() {
     elements.voiceInput.classList.remove("recording");
   }
 }
+
+// Initialize
+loadConversations();
+
+// Call this function when initializing your app
+loadSystemInstruction();
+
+// Load initial system instruction
+const initialSystemInstruction =
+  localStorage.getItem("systemInstruction") || "";
+updateSystemInstructionDisplay(initialSystemInstruction);

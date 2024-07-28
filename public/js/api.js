@@ -83,6 +83,34 @@ export async function uploadFile(file) {
   }
 }
 
+let cachedSystemInstruction = null;
+
+export async function getSystemInstruction() {
+  if (cachedSystemInstruction) {
+    console.log("Returning cached system instruction");
+    return cachedSystemInstruction;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-system-instruction`);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to get system instruction: ${response.statusText}`
+      );
+    }
+    const data = await response.json();
+    cachedSystemInstruction = data.instruction;
+    console.log(
+      "Fetched and cached system instruction:",
+      cachedSystemInstruction
+    );
+    return cachedSystemInstruction;
+  } catch (error) {
+    console.error("Error getting system instruction:", error);
+    throw error;
+  }
+}
+
 export async function setSystemInstruction(instruction) {
   try {
     const response = await fetch(`${API_BASE_URL}/set-system-instruction`, {
@@ -90,18 +118,15 @@ export async function setSystemInstruction(instruction) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ instruction }),
     });
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Failed to set system instruction:", errorText);
       throw new Error(
         `Failed to set system instruction: ${response.statusText}`
       );
     }
-
+    cachedSystemInstruction = instruction;
     return response.json();
   } catch (error) {
-    console.error("Error in setSystemInstruction:", error);
+    console.error("Error setting system instruction:", error);
     throw error;
   }
 }

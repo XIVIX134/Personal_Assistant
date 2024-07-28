@@ -36,8 +36,7 @@ export function sendMessage() {
       const messages = await dbManager.getMessages(currentConversationId);
       let systemInstruction = await dbManager.getSystemInstruction();
       if (!systemInstruction) {
-        systemInstruction = DEFAULT_SYSTEM_INSTRUCTION;
-        await dbManager.setSystemInstruction(systemInstruction);
+        systemInstruction = config.DEFAULT_SYSTEM_INSTRUCTION;
       }
 
       // Prepare the contents array
@@ -241,19 +240,34 @@ export function uploadFile(req, res) {
   res.json({ fileUri });
 }
 
+export function getSystemInstruction() {
+  return async (req, res) => {
+    try {
+      console.log("getSystemInstruction endpoint called");
+      const instruction = await dbManager.getSystemInstruction();
+      console.log("Fetched system instruction:", instruction);
+      res.json({ instruction });
+    } catch (error) {
+      console.error("Error in getSystemInstruction:", error);
+      res.status(500).json({
+        error: "An error occurred while getting the system instruction.",
+      });
+    }
+  };
+}
+
 export function setSystemInstruction() {
   return async (req, res) => {
     try {
       const { instruction } = req.body;
-      await dbManager.setSystemInstruction(
-        instruction || DEFAULT_SYSTEM_INSTRUCTION
-      );
-      res.json({ success: true });
+      console.log("Received instruction to set:", instruction);
+      await dbManager.setSystemInstruction(instruction);
+      res.json({ success: true, instruction });
     } catch (error) {
-      console.error("Error in sendMessage:", error);
-      res
-        .status(500)
-        .json({ error: "An error occurred while processing your request." });
+      console.error("Error in setSystemInstruction:", error);
+      res.status(500).json({
+        error: "An error occurred while setting the system instruction.",
+      });
     }
   };
 }

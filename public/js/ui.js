@@ -1,5 +1,11 @@
 // ui.js
 
+import {
+  getSystemInstruction,
+  setSystemInstruction as apiSetSystemInstruction,
+} from "./api.js";
+
+// DOM Elements
 export const elements = {
   chatBox: document.getElementById("chat-box"),
   chatInput: document.getElementById("chat-input"),
@@ -7,29 +13,15 @@ export const elements = {
   fileInput: document.getElementById("file-input"),
   filePreview: document.getElementById("file-preview"),
   voiceInput: document.getElementById("voice-input"),
+  settingsButton: document.getElementById("settings-button"),
+  settingsPanel: document.getElementById("settings-panel"),
+  themeSelector: document.getElementById("theme-selector"),
+  systemInstructionInput: document.getElementById("system-instruction-input"),
+  saveSettingsButton: document.getElementById("save-settings"),
   themeToggle: document.getElementById("theme-toggle"),
-  deleteContextButton: document.getElementById("delete-context-button"),
-  systemInstructionButton: document.getElementById("system-instruction-button"),
 };
 
-const svgs = ["Loading_red.svg", "Loading_blue.svg"];
-let currentSvgIndex = 0;
-
-export function createLoader() {
-  const loader = document.createElement("div");
-  loader.className = "loader";
-
-  const redSvg = document.createElement("div");
-  redSvg.className = "loader-svg red";
-  loader.appendChild(redSvg);
-
-  const blueSvg = document.createElement("div");
-  blueSvg.className = "loader-svg blue";
-  loader.appendChild(blueSvg);
-
-  return loader;
-}
-
+// Message Handling
 export function appendMessage(sender, content, fileData = null) {
   const messageDiv = document.createElement("div");
   messageDiv.className = `message ${sender}`;
@@ -55,71 +47,19 @@ export function appendMessage(sender, content, fileData = null) {
   return messageDiv;
 }
 
-function createFilePreview(fileData) {
-  const previewDiv = document.createElement("div");
-  previewDiv.className = "file-preview";
-
-  const { originalName, storedName, mimeType, path } = fileData;
-  const fileUrl = `/uploads/${storedName}`;
-
-  if (mimeType.startsWith("image/")) {
-    const img = document.createElement("img");
-    img.src = fileUrl;
-    img.alt = originalName;
-    previewDiv.appendChild(img);
-  } else if (mimeType.startsWith("video/")) {
-    const video = document.createElement("video");
-    video.src = fileUrl;
-    video.controls = true;
-    previewDiv.appendChild(video);
-  } else if (mimeType.startsWith("audio/")) {
-    const audio = document.createElement("audio");
-    audio.src = fileUrl;
-    audio.controls = true;
-    previewDiv.appendChild(audio);
-  } else {
-    const fileLink = document.createElement("a");
-    fileLink.href = fileUrl;
-    fileLink.textContent = `View uploaded file: ${originalName}`;
-    fileLink.target = "_blank";
-    previewDiv.appendChild(fileLink);
-  }
-
-  return previewDiv;
-}
-
-function getMimeType(uri) {
-  const extension = uri.split(".").pop().toLowerCase();
-  const mimeTypes = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    gif: "image/gif",
-    mp4: "video/mp4",
-    mp3: "audio/mpeg",
-    // Add more as needed
-  };
-  return mimeTypes[extension] || "application/octet-stream";
-}
-
 export function removeLoader(loaderElement) {
   if (loaderElement && loaderElement.parentNode) {
     loaderElement.parentNode.removeChild(loaderElement);
   }
 }
 
-export function processMessageContent(element) {
-  // Decode HTML entities first
+function processMessageContent(element) {
   const decodedContent = decodeHtmlEntities(element.innerHTML);
-
-  // Use marked to parse Markdown
   const rawMarkup = marked.parse(decodedContent, {
     breaks: true,
     gfm: true,
     tables: true,
   });
-
-  // Sanitize the content
   const sanitizedContent = DOMPurify.sanitize(rawMarkup, {
     USE_PROFILES: { html: true },
     ALLOWED_TAGS: [
@@ -149,13 +89,153 @@ export function processMessageContent(element) {
 
   element.innerHTML = sanitizedContent;
 
-  // Apply syntax highlighting to code blocks
   element.querySelectorAll("pre code").forEach((block) => {
     hljs.highlightElement(block);
   });
 
-  // Render LaTeX
   renderMathInElement(element);
+}
+
+// File Handling
+export function updateFilePreview(file) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    if (file.type.startsWith("image/")) {
+      elements.filePreview.innerHTML = `<img src="${e.target.result}" alt="File preview">`;
+    } else if (file.type.startsWith("video/")) {
+      elements.filePreview.innerHTML = `<video src="${e.target.result}" controls></video>`;
+    } else if (file.type.startsWith("audio/")) {
+      elements.filePreview.innerHTML = `<audio src="${e.target.result}" controls></audio>`;
+    } else {
+      elements.filePreview.innerHTML = `<p>${file.name}</p>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function createFilePreview(fileData) {
+  const previewDiv = document.createElement("div");
+  previewDiv.className = "file-preview";
+
+  const { originalName, storedName, mimeType } = fileData;
+  const fileUrl = `/uploads/${storedName}`;
+
+  if (mimeType.startsWith("image/")) {
+    const img = document.createElement("img");
+    img.src = fileUrl;
+    img.alt = originalName;
+    previewDiv.appendChild(img);
+  } else if (mimeType.startsWith("video/")) {
+    const video = document.createElement("video");
+    video.src = fileUrl;
+    video.controls = true;
+    previewDiv.appendChild(video);
+  } else if (mimeType.startsWith("audio/")) {
+    const audio = document.createElement("audio");
+    audio.src = fileUrl;
+    audio.controls = true;
+    previewDiv.appendChild(audio);
+  } else {
+    const fileLink = document.createElement("a");
+    fileLink.href = fileUrl;
+    fileLink.textContent = `View uploaded file: ${originalName}`;
+    fileLink.target = "_blank";
+    previewDiv.appendChild(fileLink);
+  }
+
+  return previewDiv;
+}
+
+// Settings Panel
+export function initializeSettingsPanel() {
+  if (elements.settingsButton)
+    elements.settingsButton.addEventListener("click", toggleSettingsPanel);
+  if (elements.saveSettingsButton)
+    elements.saveSettingsButton.addEventListener("click", saveSettings);
+  if (elements.themeSelector)
+    elements.themeSelector.addEventListener("change", handleThemeChange);
+  loadSettings();
+}
+
+async function loadSettings() {
+  const theme = localStorage.getItem("theme") || "light";
+  elements.themeSelector.value = theme;
+  setTheme(theme);
+
+  try {
+    const systemInstruction = await getSystemInstruction();
+    elements.systemInstructionInput.value = systemInstruction;
+  } catch (error) {
+    console.error("Error loading system instruction:", error);
+    elements.systemInstructionInput.value = "";
+  }
+}
+
+async function saveSettings() {
+  const theme = elements.themeSelector.value;
+  const systemInstruction = elements.systemInstructionInput.value;
+
+  localStorage.setItem("theme", theme);
+
+  try {
+    await apiSetSystemInstruction(systemInstruction);
+    appendMessage("system", "Settings saved successfully.");
+  } catch (error) {
+    console.error("Error saving system instruction:", error);
+    appendMessage("system", "Failed to save system instruction.");
+  }
+
+  toggleSettingsPanel();
+}
+
+export function updateSystemInstructionDisplay(instruction) {
+  if (elements.systemInstructionInput) {
+    elements.systemInstructionInput.value = instruction;
+  }
+}
+
+function toggleSettingsPanel() {
+  elements.settingsPanel.classList.toggle("open");
+}
+
+function autoResizeTextarea(textarea) {
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
+}
+
+// Theme Handling
+export function setTheme(theme) {
+  document.body.classList.remove("light-mode", "dark-mode");
+  document.body.classList.add(`${theme}-mode`);
+}
+
+function handleThemeChange(event) {
+  const newTheme = event.target.value;
+  setTheme(newTheme);
+}
+
+function toggleTheme() {
+  const currentTheme = document.body.classList.contains("dark-mode")
+    ? "light"
+    : "dark";
+  setTheme(currentTheme);
+  localStorage.setItem("theme", currentTheme);
+}
+
+// Utility Functions
+function createLoader() {
+  const loader = document.createElement("div");
+  loader.className = "loader";
+
+  const redSvg = document.createElement("div");
+  redSvg.className = "loader-svg red";
+  loader.appendChild(redSvg);
+
+  const blueSvg = document.createElement("div");
+  blueSvg.className = "loader-svg blue";
+  loader.appendChild(blueSvg);
+
+  return loader;
 }
 
 function decodeHtmlEntities(text) {
@@ -182,39 +262,6 @@ function renderMathInElement(element) {
   }
 }
 
-export function updateFilePreview(file) {
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    if (file.type.startsWith("image/")) {
-      elements.filePreview.innerHTML = `<img src="${e.target.result}" alt="File preview">`;
-    } else if (file.type.startsWith("video/")) {
-      elements.filePreview.innerHTML = `<video src="${e.target.result}" controls></video>`;
-    } else if (file.type.startsWith("audio/")) {
-      elements.filePreview.innerHTML = `<audio src="${e.target.result}" controls></audio>`;
-    } else {
-      elements.filePreview.innerHTML = `<p>${file.name}</p>`;
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-export function toggleDarkMode() {
-  document.body.classList.toggle("dark-mode");
-  localStorage.setItem(
-    "darkMode",
-    document.body.classList.contains("dark-mode")
-  );
-}
-
-export function loadDarkModePreference() {
-  const darkMode = localStorage.getItem("darkMode");
-  if (darkMode === "true") {
-    document.body.classList.add("dark-mode");
-  }
-}
-
-// Call this function when the page loads
-loadDarkModePreference();
-
-// Add event listener for theme toggle
-elements.themeToggle.addEventListener("click", toggleDarkMode);
+// Initialize
+loadSettings();
+initializeSettingsPanel();
