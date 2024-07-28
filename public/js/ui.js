@@ -1,9 +1,6 @@
 // ui.js
 
-import {
-  getSystemInstruction,
-  setSystemInstruction as apiSetSystemInstruction,
-} from "./api.js";
+import { getSystemInstruction, setSystemInstruction } from "./api.js";
 
 // DOM Elements
 export const elements = {
@@ -21,7 +18,7 @@ export const elements = {
   themeToggle: document.getElementById("theme-toggle"),
 };
 
-// Message Handling
+// Append a message to the chat box
 export function appendMessage(sender, content, fileData = null) {
   const messageDiv = document.createElement("div");
   messageDiv.className = `message ${sender}`;
@@ -47,12 +44,14 @@ export function appendMessage(sender, content, fileData = null) {
   return messageDiv;
 }
 
+// Remove the loader element
 export function removeLoader(loaderElement) {
   if (loaderElement && loaderElement.parentNode) {
     loaderElement.parentNode.removeChild(loaderElement);
   }
 }
 
+// Process message content (Markdown, code highlighting, LaTeX)
 function processMessageContent(element) {
   const decodedContent = decodeHtmlEntities(element.innerHTML);
   const rawMarkup = marked.parse(decodedContent, {
@@ -96,7 +95,7 @@ function processMessageContent(element) {
   renderMathInElement(element);
 }
 
-// File Handling
+// Update file preview
 export function updateFilePreview(file) {
   const reader = new FileReader();
   reader.onload = function (e) {
@@ -113,6 +112,7 @@ export function updateFilePreview(file) {
   reader.readAsDataURL(file);
 }
 
+// Create file preview element
 function createFilePreview(fileData) {
   const previewDiv = document.createElement("div");
   previewDiv.className = "file-preview";
@@ -146,7 +146,7 @@ function createFilePreview(fileData) {
   return previewDiv;
 }
 
-// Settings Panel
+// Initialize settings panel
 export function initializeSettingsPanel() {
   if (elements.settingsButton)
     elements.settingsButton.addEventListener("click", toggleSettingsPanel);
@@ -157,6 +157,7 @@ export function initializeSettingsPanel() {
   loadSettings();
 }
 
+// Load settings
 async function loadSettings() {
   const theme = localStorage.getItem("theme") || "light";
   elements.themeSelector.value = theme;
@@ -171,6 +172,7 @@ async function loadSettings() {
   }
 }
 
+// Save settings
 async function saveSettings() {
   const theme = elements.themeSelector.value;
   const systemInstruction = elements.systemInstructionInput.value;
@@ -178,7 +180,7 @@ async function saveSettings() {
   localStorage.setItem("theme", theme);
 
   try {
-    await apiSetSystemInstruction(systemInstruction);
+    await setSystemInstruction(systemInstruction);
     appendMessage("system", "Settings saved successfully.");
   } catch (error) {
     console.error("Error saving system instruction:", error);
@@ -188,41 +190,31 @@ async function saveSettings() {
   toggleSettingsPanel();
 }
 
+// Update system instruction display
 export function updateSystemInstructionDisplay(instruction) {
   if (elements.systemInstructionInput) {
     elements.systemInstructionInput.value = instruction;
   }
 }
 
+// Toggle settings panel
 function toggleSettingsPanel() {
   elements.settingsPanel.classList.toggle("open");
 }
 
-function autoResizeTextarea(textarea) {
-  textarea.style.height = "auto";
-  textarea.style.height = textarea.scrollHeight + "px";
-}
-
-// Theme Handling
+// Set theme
 export function setTheme(theme) {
   document.body.classList.remove("light-mode", "dark-mode");
   document.body.classList.add(`${theme}-mode`);
 }
 
+// Handle theme change
 function handleThemeChange(event) {
   const newTheme = event.target.value;
   setTheme(newTheme);
 }
 
-function toggleTheme() {
-  const currentTheme = document.body.classList.contains("dark-mode")
-    ? "light"
-    : "dark";
-  setTheme(currentTheme);
-  localStorage.setItem("theme", currentTheme);
-}
-
-// Utility Functions
+// Create loader element
 function createLoader() {
   const loader = document.createElement("div");
   loader.className = "loader";
@@ -238,12 +230,14 @@ function createLoader() {
   return loader;
 }
 
+// Decode HTML entities
 function decodeHtmlEntities(text) {
   const textArea = document.createElement("textarea");
   textArea.innerHTML = text;
   return textArea.value;
 }
 
+// Render LaTeX in element
 function renderMathInElement(element) {
   if (window.MathJax) {
     if (typeof window.MathJax.typesetPromise === "function") {
@@ -261,7 +255,3 @@ function renderMathInElement(element) {
     console.warn("MathJax is not available. LaTeX rendering is disabled.");
   }
 }
-
-// Initialize
-loadSettings();
-initializeSettingsPanel();

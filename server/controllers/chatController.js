@@ -1,5 +1,3 @@
-// chatController.js
-
 import {
   GoogleGenerativeAI,
   HarmCategory,
@@ -13,10 +11,7 @@ import config from "../config.js";
 const fileManager = new GoogleAIFileManager(config.API_KEY);
 const genAI = new GoogleGenerativeAI(config.API_KEY);
 
-const DEFAULT_SYSTEM_INSTRUCTION =
-  "You are a helpful AI assistant named Skyhammer AI. Your goal is to provide information, complete tasks, and engage in conversation. You have a wide range of knowledge on various topics including science, technology, history, culture, and current events. You can assist with analysis, question answering, coding, creative writing, and general discussion. Always strive to give accurate and helpful responses while being respectful and ethical. If you're unsure about something, it's okay to say so. Try to tailor your language and tone to what seems most appropriate for each user and conversation.";
-
-// Add this function at the top of the file:
+// Generate a UUID
 function generateUUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     var r = (Math.random() * 16) | 0,
@@ -25,6 +20,7 @@ function generateUUID() {
   });
 }
 
+// Send message handler
 export function sendMessage() {
   return async (req, res) => {
     try {
@@ -93,7 +89,6 @@ export function sendMessage() {
       }
 
       // Generate content
-
       const safetySettings = [
         {
           category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -117,8 +112,6 @@ export function sendMessage() {
         model: "gemini-1.5-flash",
         safetySettings: safetySettings,
       });
-
-      console.log("Request payload:", JSON.stringify({ contents }, null, 2));
 
       const result = await model.generateContent({ contents });
       const response = result.response.text();
@@ -167,7 +160,6 @@ export function sendMessage() {
       });
     } catch (error) {
       console.error("Error in sendMessage:", error);
-      console.error("Error stack:", error.stack);
       res.status(500).json({
         error: "An error occurred while processing your request.",
         details: error.message,
@@ -176,6 +168,7 @@ export function sendMessage() {
   };
 }
 
+// Get conversations handler
 export function getConversations() {
   return async (req, res) => {
     try {
@@ -190,6 +183,7 @@ export function getConversations() {
   };
 }
 
+// Get conversation messages handler
 export function getConversationMessages() {
   return async (req, res) => {
     try {
@@ -203,6 +197,7 @@ export function getConversationMessages() {
   };
 }
 
+// Delete conversation handler
 export function deleteConversation() {
   return async (req, res) => {
     try {
@@ -218,6 +213,7 @@ export function deleteConversation() {
   };
 }
 
+// Update conversation name handler
 export function updateConversationName() {
   return async (req, res) => {
     try {
@@ -231,6 +227,7 @@ export function updateConversationName() {
   };
 }
 
+// File upload handler
 export function uploadFile(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded." });
@@ -240,12 +237,11 @@ export function uploadFile(req, res) {
   res.json({ fileUri });
 }
 
+// Get system instruction handler
 export function getSystemInstruction() {
   return async (req, res) => {
     try {
-      console.log("getSystemInstruction endpoint called");
       const instruction = await dbManager.getSystemInstruction();
-      console.log("Fetched system instruction:", instruction);
       res.json({ instruction });
     } catch (error) {
       console.error("Error in getSystemInstruction:", error);
@@ -256,11 +252,11 @@ export function getSystemInstruction() {
   };
 }
 
+// Set system instruction handler
 export function setSystemInstruction() {
   return async (req, res) => {
     try {
       const { instruction } = req.body;
-      console.log("Received instruction to set:", instruction);
       await dbManager.setSystemInstruction(instruction);
       res.json({ success: true, instruction });
     } catch (error) {
@@ -272,6 +268,7 @@ export function setSystemInstruction() {
   };
 }
 
+// Delete chat history handler
 export function deleteChatHistory() {
   return async (req, res) => {
     try {
@@ -286,6 +283,7 @@ export function deleteChatHistory() {
   };
 }
 
+// Generate conversation name handler
 export function generateConversationName(genAI) {
   return async (req, res) => {
     try {

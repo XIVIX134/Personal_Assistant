@@ -1,7 +1,8 @@
-const API_BASE_URL = "/api";
-export { API_BASE_URL };
+// api.js
 
-// Add this function at the top of the file:
+export const API_BASE_URL = "/api";
+
+// Generate a UUID
 function generateUUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     var r = (Math.random() * 16) | 0,
@@ -10,6 +11,7 @@ function generateUUID() {
   });
 }
 
+// Send a message to the server
 export async function sendMessage(
   message,
   fileData = null,
@@ -52,6 +54,7 @@ export async function sendMessage(
   }
 }
 
+// Upload a file to the server
 export async function uploadFile(file) {
   const originalName = file.name;
   const extension = originalName.split(".").pop();
@@ -73,7 +76,7 @@ export async function uploadFile(file) {
     const data = await response.json();
     return {
       originalName: originalName,
-      storedName: data.filename, // Use the filename returned by the server
+      storedName: data.filename,
       mimeType: file.type,
       path: data.path,
     };
@@ -83,14 +86,8 @@ export async function uploadFile(file) {
   }
 }
 
-let cachedSystemInstruction = null;
-
+// Get system instruction
 export async function getSystemInstruction() {
-  if (cachedSystemInstruction) {
-    console.log("Returning cached system instruction");
-    return cachedSystemInstruction;
-  }
-
   try {
     const response = await fetch(`${API_BASE_URL}/get-system-instruction`);
     if (!response.ok) {
@@ -99,18 +96,14 @@ export async function getSystemInstruction() {
       );
     }
     const data = await response.json();
-    cachedSystemInstruction = data.instruction;
-    console.log(
-      "Fetched and cached system instruction:",
-      cachedSystemInstruction
-    );
-    return cachedSystemInstruction;
+    return data.instruction;
   } catch (error) {
     console.error("Error getting system instruction:", error);
     throw error;
   }
 }
 
+// Set system instruction
 export async function setSystemInstruction(instruction) {
   try {
     const response = await fetch(`${API_BASE_URL}/set-system-instruction`, {
@@ -123,7 +116,6 @@ export async function setSystemInstruction(instruction) {
         `Failed to set system instruction: ${response.statusText}`
       );
     }
-    cachedSystemInstruction = instruction;
     return response.json();
   } catch (error) {
     console.error("Error setting system instruction:", error);
@@ -131,6 +123,7 @@ export async function setSystemInstruction(instruction) {
   }
 }
 
+// Get conversations
 export async function getConversations() {
   try {
     const response = await fetch(`${API_BASE_URL}/conversations`);
@@ -144,6 +137,7 @@ export async function getConversations() {
   }
 }
 
+// Delete conversation
 export async function deleteConversation(conversationId) {
   try {
     const response = await fetch(`${API_BASE_URL}/delete-conversation`, {
@@ -161,6 +155,7 @@ export async function deleteConversation(conversationId) {
   }
 }
 
+// Delete cached context
 export async function deleteCachedContext() {
   try {
     const response = await fetch(`${API_BASE_URL}/delete-chat-history`, {
@@ -180,6 +175,7 @@ export async function deleteCachedContext() {
   }
 }
 
+// Get conversation messages
 export async function getConversationMessages(conversationId) {
   const response = await fetch(
     `${API_BASE_URL}/conversation-messages/${conversationId}`
@@ -190,6 +186,7 @@ export async function getConversationMessages(conversationId) {
   return response.json();
 }
 
+// Generate conversation name
 export async function generateConversationName(message) {
   try {
     const response = await fetch(`${API_BASE_URL}/generate-conversation-name`, {

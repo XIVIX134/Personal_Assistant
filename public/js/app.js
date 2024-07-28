@@ -1,5 +1,3 @@
-// app.js
-
 import {
   elements,
   appendMessage,
@@ -17,6 +15,7 @@ import {
   getConversations,
   deleteConversation,
   getSystemInstruction,
+  getConversationMessages,
 } from "./api.js";
 
 let selectedFile = null;
@@ -25,85 +24,33 @@ let isRecording = false;
 let mediaRecorder;
 let audioChunks = [];
 
-// Initialize settings panel
-initializeSettingsPanel();
+// Initialize the application
+function initializeApp() {
+  initializeSettingsPanel();
+  addEventListeners();
+  loadConversations();
+  loadSystemInstruction();
+}
 
-// Event Listeners
-elements.sendButton.addEventListener("click", handleSendMessage);
-elements.chatInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    handleSendMessage();
-  }
-});
+// Add event listeners
+function addEventListeners() {
+  elements.sendButton.addEventListener("click", handleSendMessage);
+  elements.chatInput.addEventListener("keypress", handleChatInputKeypress);
+  elements.fileInput.addEventListener("change", handleFileInputChange);
+  elements.voiceInput.addEventListener("click", toggleVoiceRecording);
+  document
+    .getElementById("save-settings")
+    .addEventListener("click", handleSaveSettings);
+  document
+    .getElementById("sidebar-toggle")
+    .addEventListener("click", toggleSidebar);
+  document
+    .getElementById("new-conversation")
+    .addEventListener("click", createNewConversation);
+  document.addEventListener("click", handleOutsideClick);
+}
 
-elements.fileInput.addEventListener("change", (e) => {
-  selectedFile = e.target.files[0];
-  if (selectedFile) {
-    updateFilePreview(selectedFile);
-  }
-});
-
-elements.voiceInput.addEventListener("click", toggleVoiceRecording);
-
-document.getElementById("save-settings").addEventListener("click", function () {
-  const newInstruction = document.getElementById(
-    "system-instruction-input"
-  ).value;
-  updateSystemInstruction(newInstruction);
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-  const systemInstructionInput = document.getElementById(
-    "system-instruction-input"
-  );
-
-  if (systemInstructionInput) {
-    // Initial resize
-    autoResizeTextarea(systemInstructionInput);
-
-    // Resize on input
-    systemInstructionInput.addEventListener("input", function () {
-      autoResizeTextarea(this);
-    });
-
-    // Resize when the value is set programmatically
-    const originalSetter = Object.getOwnPropertyDescriptor(
-      HTMLTextAreaElement.prototype,
-      "value"
-    ).set;
-    Object.defineProperty(systemInstructionInput, "value", {
-      set: function (value) {
-        originalSetter.call(this, value);
-        autoResizeTextarea(this);
-      },
-    });
-  }
-});
-
-// Sidebar toggle
-const sidebarToggle = document.getElementById("sidebar-toggle");
-const sidebar = document.getElementById("sidebar");
-
-sidebarToggle.addEventListener("click", () => {
-  sidebar.classList.toggle("open");
-});
-
-// Close sidebar when clicking outside of it
-document.addEventListener("click", (event) => {
-  if (
-    !sidebar.contains(event.target) &&
-    !sidebarToggle.contains(event.target)
-  ) {
-    sidebar.classList.remove("open");
-  }
-});
-
-// New conversation button
-const newConversationBtn = document.getElementById("new-conversation");
-newConversationBtn.addEventListener("click", createNewConversation);
-
-// Message Handling
+// Handle send message
 async function handleSendMessage() {
   const message = elements.chatInput.value.trim();
   if (!message && !selectedFile) return;
@@ -149,28 +96,74 @@ async function handleSendMessage() {
   elements.fileInput.value = "";
 }
 
-// Conversation Management
-function updateCurrentConversationName(name) {
-  const activeConversation = document.querySelector(
-    ".conversation-item.active"
-  );
-  if (activeConversation) {
-    const nameSpan = activeConversation.querySelector(".conversation-name");
-    if (nameSpan) {
-      nameSpan.textContent = name;
-    }
+// Handle chat input keypress
+function handleChatInputKeypress(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    handleSendMessage();
   }
 }
 
+// Handle file input change
+function handleFileInputChange(e) {
+  selectedFile = e.target.files[0];
+  if (selectedFile) {
+    updateFilePreview(selectedFile);
+  }
+}
+
+// Handle save settings
+function handleSaveSettings() {
+  const newInstruction = document.getElementById(
+    "system-instruction-input"
+  ).value;
+  updateSystemInstruction(newInstruction);
+}
+
+// Toggle sidebar
+function toggleSidebar() {
+  document.getElementById("sidebar").classList.toggle("open");
+}
+
+// Handle outside click to close sidebar
+function handleOutsideClick(event) {
+  const sidebar = document.getElementById("sidebar");
+  const sidebarToggle = document.getElementById("sidebar-toggle");
+  if (
+    !sidebar.contains(event.target) &&
+    !sidebarToggle.contains(event.target)
+  ) {
+    sidebar.classList.remove("open");
+  }
+}
+
+// Create new conversation
+function createNewConversation() {
+  currentConversationId = null;
+  elements.chatBox.innerHTML = "";
+  appendMessage("system", "Started a new conversation");
+}
+
+// Update conversation list
+function updateConversationList(conversations) {
+  const conversationList = document.getElementById("conversation-list");
+  conversationList.innerHTML = "";
+  conversations.forEach((conv) => {
+    addConversationToList(conv.id, conv.name || "Untitled Conversation");
+  });
+  updateActiveConversation(currentConversationId);
+}
+
+// Add conversation to list
 function addConversationToList(id, name) {
   const conversationList = document.getElementById("conversation-list");
   const li = document.createElement("li");
   li.className = "conversation-item";
   li.dataset.id = id;
   li.innerHTML = `
-        <span class="conversation-name">${name}</span>
-        <button class="delete-conversation"><i class="fas fa-trash"></i></button>
-    `;
+    <span class="conversation-name">${name}</span>
+    <button class="delete-conversation"><i class="fas fa-trash"></i></button>
+  `;
   li.querySelector(".delete-conversation").addEventListener("click", (e) => {
     e.stopPropagation();
     handleDeleteConversation(id);
@@ -179,37 +172,7 @@ function addConversationToList(id, name) {
   conversationList.appendChild(li);
 }
 
-async function loadConversations() {
-  try {
-    const { conversations } = await getConversations();
-    const conversationList = document.getElementById("conversation-list");
-    conversationList.innerHTML = ""; // Clear existing list
-    conversations.forEach((conv) => {
-      addConversationToList(conv.id, conv.name || "Untitled Conversation");
-    });
-    updateActiveConversation(currentConversationId);
-  } catch (error) {
-    console.error("Error loading conversations:", error);
-    appendMessage("system", "Failed to load conversations.");
-  }
-}
-
-function updateConversationList(conversations) {
-  const conversationList = document.getElementById("conversation-list");
-  conversations.forEach((conv) => {
-    let existingItem = conversationList.querySelector(`[data-id="${conv.id}"]`);
-    if (existingItem) {
-      const nameSpan = existingItem.querySelector(".conversation-name");
-      if (nameSpan) {
-        nameSpan.textContent = conv.name || "Untitled Conversation";
-      }
-    } else {
-      addConversationToList(conv.id, conv.name || "Untitled Conversation");
-    }
-  });
-  updateActiveConversation(currentConversationId);
-}
-
+// Switch conversation
 async function switchConversation(conversationId) {
   currentConversationId = conversationId;
   elements.chatBox.innerHTML = "";
@@ -234,27 +197,7 @@ async function switchConversation(conversationId) {
   updateActiveConversation(conversationId);
 }
 
-async function getConversationMessages(conversationId) {
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/conversation-messages/${conversationId}`
-    );
-    if (!response.ok) {
-      throw new Error("Failed to fetch conversation messages");
-    }
-    return response.json();
-  } catch (error) {
-    console.error("Error fetching conversation messages:", error);
-    throw error;
-  }
-}
-
-function createNewConversation() {
-  currentConversationId = null;
-  elements.chatBox.innerHTML = "";
-  appendMessage("system", "Started a new conversation");
-}
-
+// Handle delete conversation
 async function handleDeleteConversation(conversationId) {
   try {
     await deleteConversation(conversationId);
@@ -268,6 +211,7 @@ async function handleDeleteConversation(conversationId) {
   }
 }
 
+// Update active conversation
 function updateActiveConversation(conversationId) {
   const conversationItems = document.querySelectorAll(".conversation-item");
   conversationItems.forEach((item) => {
@@ -279,8 +223,54 @@ function updateActiveConversation(conversationId) {
   });
 }
 
-// System Instructions
-export async function setSystemInstruction(instruction) {
+// Update current conversation name
+function updateCurrentConversationName(name) {
+  const activeConversation = document.querySelector(
+    ".conversation-item.active"
+  );
+  if (activeConversation) {
+    const nameSpan = activeConversation.querySelector(".conversation-name");
+    if (nameSpan) {
+      nameSpan.textContent = name;
+    }
+  }
+}
+
+// Load conversations
+async function loadConversations() {
+  try {
+    const { conversations } = await getConversations();
+    const conversationList = document.getElementById("conversation-list");
+    conversationList.innerHTML = "";
+    conversations.forEach((conv) => {
+      addConversationToList(conv.id, conv.name || "Untitled Conversation");
+    });
+    updateActiveConversation(currentConversationId);
+  } catch (error) {
+    console.error("Error loading conversations:", error);
+    appendMessage("system", "Failed to load conversations.");
+  }
+}
+
+// Load system instruction
+async function loadSystemInstruction() {
+  try {
+    const instruction = await getSystemInstruction();
+    const systemInstructionInput = document.getElementById(
+      "system-instruction-input"
+    );
+    if (systemInstructionInput) {
+      systemInstructionInput.value = instruction;
+      autoResizeTextarea(systemInstructionInput);
+    }
+    localStorage.setItem("systemInstruction", instruction);
+  } catch (error) {
+    console.error("Error loading system instruction:", error);
+  }
+}
+
+// Update system instruction
+async function updateSystemInstruction(instruction) {
   try {
     await apiSetSystemInstruction(instruction);
     localStorage.setItem("systemInstruction", instruction);
@@ -292,52 +282,7 @@ export async function setSystemInstruction(instruction) {
   }
 }
 
-async function loadSystemInstruction() {
-  try {
-    const instruction = await getSystemInstruction();
-    console.log("Loaded system instruction:", instruction);
-
-    const systemInstructionInput = document.getElementById(
-      "system-instruction-input"
-    );
-    if (systemInstructionInput) {
-      systemInstructionInput.value = instruction;
-      autoResizeTextarea(systemInstructionInput);
-    }
-
-    localStorage.setItem("systemInstruction", instruction);
-  } catch (error) {
-    console.error("Error loading system instruction:", error);
-  }
-}
-
-async function updateSystemInstruction(instruction) {
-  try {
-    const response = await fetch("/api/set-system-instruction", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ instruction }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to update system instruction");
-    }
-
-    const data = await response.json();
-    console.log("Updated system instruction:", data.instruction);
-
-    // Update localStorage
-    localStorage.setItem("systemInstruction", data.instruction);
-
-    // You might want to update any other parts of your UI that use the system instruction here
-  } catch (error) {
-    console.error("Error updating system instruction:", error);
-  }
-}
-
-// Voice Recording
+// Toggle voice recording
 async function toggleVoiceRecording() {
   if (!isRecording) {
     try {
@@ -371,13 +316,11 @@ async function toggleVoiceRecording() {
   }
 }
 
-// Initialize
-loadConversations();
+// Auto-resize textarea
+function autoResizeTextarea(textarea) {
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
+}
 
-// Call this function when initializing your app
-loadSystemInstruction();
-
-// Load initial system instruction
-const initialSystemInstruction =
-  localStorage.getItem("systemInstruction") || "";
-updateSystemInstructionDisplay(initialSystemInstruction);
+// Initialize the application
+initializeApp();

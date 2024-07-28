@@ -4,7 +4,6 @@ import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
-import { v4 as uuidv4 } from "uuid";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import config from "./server/config.js";
 import routes from "./server/routes.js";
@@ -12,24 +11,25 @@ import routes from "./server/routes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize Express app and create HTTP server
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Increase the payload size limit (adjust the limit as needed)
+// Increase payload size limit
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+// Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// File upload configuration
-
+// Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: (req, file, cb) => {
     cb(null, "uploads/");
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
       null,
@@ -40,6 +40,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// File upload endpoint
 app.post("/api/upload-file", upload.single("file"), (req, res) => {
   if (!req.file) {
     return res.status(400).send("No file uploaded.");
@@ -54,20 +55,19 @@ app.post("/api/upload-file", upload.single("file"), (req, res) => {
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(config.API_KEY);
 
-// Socket.IO connection
+// Socket.IO connection handler
 io.on("connection", (socket) => {
   console.log("A user connected");
-
   socket.on("disconnect", () => {
     console.log("User disconnected");
   });
 });
 
-// Routes
+// Set up API routes
 app.use("/api", routes(genAI, upload, io));
 
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on http://192.168.1.12:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
